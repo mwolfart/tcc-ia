@@ -45,15 +45,11 @@ def csvs_to_df(file_list):
 
 	return df
 
-
 def main():
 	files = list_files("data")
 	df = csvs_to_df(files)
-
-	# print(df.head())
-	# print(df.isnull().sum())
-	print(df[df.Conforme == "Não"])
-
+ 
+	df.to_csv('compiled_data.csv', index=False)
 	return 0
 
 if __name__ == "__main__":
