@@ -3,6 +3,12 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 import os
+import sys
+
+debug = False
+if len(sys.argv) == 2:
+	print("[INFO] Debugging on")
+	debug = True
 
 def list_files(directory):
     files = os.listdir(directory)
@@ -19,12 +25,14 @@ def list_files(directory):
     return file_list
 
 def read_csv(file):
-	print("[INFO] Reading:", file)
+	if debug:
+		print("[INFO] Reading:", file)
 	try:
 		csv = pd.read_csv(file, sep=";")
 		return csv
 	except Exception as e:
-		print("[ERROR] Error while reading:", file, "-", e)
+		if debug:
+			print("[ERROR] Error while reading:", file, "-", e)
 		return None
 
 def csvs_to_df(file_list):
@@ -42,7 +50,9 @@ def main():
 	files = list_files("data")
 	df = csvs_to_df(files)
 
-	print(df.head())
+	# print(df.head())
+	# print(df.isnull().sum())
+	print(df[df.Conforme == "Não"])
 
 	return 0
 
