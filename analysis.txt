@@ -1,0 +1,35 @@
+Columns: ['artistName', 'averageUserRating', 'averageUserRatingForCurrentVersion', 'contentAdvisoryRating', 'description', 'fileSizeBytes', 'isGameCenterEnabled', 'minimumOsVersion', 'price', 'primaryGenreId', 'releaseDate', 'trackName', 'userRatingCount', 'releaseNotes']
+
+# IsNull = IsNaN
+artistName                             0
+averageUserRating                      0
+averageUserRatingForCurrentVersion     0
+contentAdvisoryRating                  0
+description                            0
+fileSizeBytes                          0
+isGameCenterEnabled                    0
+minimumOsVersion                       0
+price                                 58
+primaryGenreId                         0
+releaseDate                            0
+trackName                              0
+userRatingCount                        0
+releaseNotes                          31
+
+# MinMaxs
+averageUserRating:  0.0 4.97039
+averageUserRatingForCurrentVersion:  0.0 4.97039
+fileSizeBytes:  6903808 4335050752                  # 6MB to 4GB
+minimumOsVersion:  10.0 9.3
+price:  0.0 6.99
+userRatingCount:  0 10978028
+
+# Distribution for price, userRatingCount, averageUserRating
+
+# Price: 1941 are free (0.0), 1 is 6.99, 58 are NaN
+
+# UserRatingCount, lots of small rating counts - plot shows a lot0 close to 0.0
+# 14 rows with 0 ratings, 4 between 0 and 5, 39 between 0 and 50, etc
+# from the 1986 entries with ratings, there are only 100 with more than 649k ratings.
+
+# averageUserRating, most of the situations go from 4 to 5. 14 with rating 0.0
