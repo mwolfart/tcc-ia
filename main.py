@@ -12,6 +12,7 @@ from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.feature_extraction.text import TfidfTransformer
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
+from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn import svm
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 
@@ -29,6 +30,11 @@ def simplify_text(text):
     simple = [st.stem(x) for x in simple]
     return simple
 
+def remove_non_alpha(text):
+    pattern = re.compile(r'[^a-zA-Z\s,.]')
+    clean_string = re.sub(pattern, '', text)
+    return clean_string
+
 def discretize_rating(rating):
     if rating >= GOOD_RATING:
         return 1
@@ -36,60 +42,48 @@ def discretize_rating(rating):
     #     return 1
     else: return 0
     
-def linear_regression(X_train, y_train, X_test, y_test):
-    model = LinearRegression()
-    model.fit(X_train, y_train)
-    y_pred = model.predict(X_test)
+# def linear_regression(X_train, y_train, X_test, y_test):
+#     model = LinearRegression()
+#     model.fit(X_train, y_train)
+#     y_pred = model.predict(X_test)
     
-    errors = []
-    for i, y in enumerate(y_test):
-        error = abs(y - y_pred[i])
-        errors.append(error)
+#     errors = []
+#     for i, y in enumerate(y_test):
+#         error = abs(y - y_pred[i])
+#         errors.append(error)
         
-    print(errors)
-    sum = 0
-    for e in errors:
-        sum += e
-    print(sum)
-
-def classifier(X_train, y_train, X_test, y_test):
-    clf = svm.SVC(kernel='linear')
-    clf.fit(X_train, y_train)
-    y_pred = clf.predict(X_test)
-
-    cm = confusion_matrix(y_test, y_pred, labels=clf.classes_)
-    disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=clf.classes_)
-    disp.plot()
-    plt.show()
+#     print(errors)
+#     sum = 0
+#     for e in errors:
+#         sum += e
+#     print(sum)
 
 def main():
     nltk.download()
     df = pd.read_csv("./games.csv")
-    df = df[df.userRatingCount > MINIMUM_RATINGS]
-    df['descriptionWCount'] = df.description.apply(lambda d : len(re.findall(r'\w+', d)))
-    df['descriptionCCount'] = df.description.apply(len)
-    df['goodRating'] = df.averageUserRating.apply(discretize_rating)
-    # df['descriptionSimple'] = df.description.apply(simplify_text)
+    dfu = df[df.userRatingCount > MINIMUM_RATINGS]
+    dfu.reset_index(inplace=True)
+    dfu['descriptionWCount'] = dfu.description.apply(lambda d : len(re.findall(r'\w+', d)))
+    dfu['descriptionCCount'] = dfu.description.apply(len)
+    dfu['goodRating'] = dfu.averageUserRating.apply(discretize_rating)
+    # dfu['descriptionAlpha'] = dfu.description.apply(remove_non_alpha)
     
-    vectorizer = CountVectorizer(analyzer=simplify_text).fit(df.description)
-    vector = vectorizer.transform(df.description)
+    vectorizer = CountVectorizer(analyzer=simplify_text).fit(dfu.description)
+    vector = vectorizer.transform(dfu.description)
     vectorDF = pd.DataFrame(vector.todense(), columns=vectorizer.get_feature_names_out())
-    vectorDF = pd.concat([df.goodRating, vectorDF], axis=1)
-    print("Shape of vectorized DF:", vectorDF.shape)
-    print(vectorDF.head(10))
+    vectorDF = pd.concat([dfu.goodRating, vectorDF], axis=1, ignore_index=True)
+    # print("Shape of vectorized DF:", vectorDF.shape)
+    # print(vectorDF.head(10))
     
     vectorizerTF = TfidfTransformer().fit(vector)
     vectorTF = vectorizerTF.transform(vector)
     vectorTFDF = pd.DataFrame(vectorTF.todense(), columns=vectorizer.get_feature_names_out())
-    vectorTFDF = pd.concat([df.goodRating, vectorTFDF], axis=1)
-    print("Shape of vector TFDF:", vectorTFDF.shape)
-    print(vectorTFDF.head(10))
+    vectorTFDF = pd.concat([dfu.goodRating, vectorTFDF], axis=1, ignore_index=True)
+    # print("Shape of vector TFDF:", vectorTFDF.shape)
+    # print(vectorTFDF.head(10))
     
-    X = vectorTFDF.drop('goodRating', axis=1)
-    y = vectorTFDF.goodRating
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=42)
-    
-    classifier(X_train, X_test, y_train, y_test)
+    vectorDF.to_csv("VectorDF.csv")
+    vectorTFDF.to_csv("VectorTFDF.csv")
     
 if __name__ == "__main__":
     main()
