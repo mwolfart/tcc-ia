@@ -17,14 +17,10 @@ from sklearn import svm
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 
 st = PorterStemmer()
-# MINIMUM_RATINGS = 30
-GOOD_RATING = 4
-THRESHOLD_NON_ZERO_COLS = 10
-USE_TFDF = True
-USE_RELEASE_NOTES = True
-HIGH_ENGAGEMENT_THRESHOLD = 20000
-# MEDIUM_RATING = 4
+MINIMUM_RATINGS = 30
 
+GOOD_RATING = 4.5
+MEDIUM_RATING = 4
 
 # stemming and stop words removal
 def simplify_text(text):
@@ -62,65 +58,32 @@ def discretize_rating(rating):
 #         sum += e
 #     print(sum)
 
-
-def classifier(X_train, y_train, X_test, y_test):
-    clf = svm.SVC(kernel='linear')
-    #clf = HistGradientBoostingClassifier()
-    clf.fit(X_train, y_train)
-    y_pred = clf.predict(X_test)
-
-    cm = confusion_matrix(y_test, y_pred, labels=clf.classes_)
-    disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=clf.classes_)
-    disp.plot()
-    plt.show()
-
 def main():
-    # nltk.download()
+    nltk.download()
     df = pd.read_csv("./games.csv")
-    # dfu = df[df.userRatingCount > MINIMUM_RATINGS]
-    dfu = df
+    dfu = df[df.userRatingCount > MINIMUM_RATINGS]
     dfu.reset_index(inplace=True)
     dfu['descriptionWCount'] = dfu.description.apply(lambda d : len(re.findall(r'\w+', d)))
     dfu['descriptionCCount'] = dfu.description.apply(len)
     dfu['goodRating'] = dfu.averageUserRating.apply(discretize_rating)
-    dfu['highEngagement'] = dfu.userRatingCount.apply(lambda x: x > HIGH_ENGAGEMENT_THRESHOLD)
     # dfu['descriptionAlpha'] = dfu.description.apply(remove_non_alpha)
-    
-    if USE_RELEASE_NOTES:
-        for i, r in dfu.iterrows():
-            if not pd.isna(r['releaseNotes']):
-                df.at[i, 'description'] = r['description'] + "\n" + r['releaseNotes']
     
     vectorizer = CountVectorizer(analyzer=simplify_text).fit(dfu.description)
     vector = vectorizer.transform(dfu.description)
     vectorDF = pd.DataFrame(vector.todense(), columns=vectorizer.get_feature_names_out())
-    vectorDF = pd.concat([dfu.highEngagement, vectorDF], axis=1, ignore_index=True)
+    vectorDF = pd.concat([dfu.goodRating, vectorDF], axis=1, ignore_index=True)
     # print("Shape of vectorized DF:", vectorDF.shape)
     # print(vectorDF.head(10))
     
     vectorizerTF = TfidfTransformer().fit(vector)
     vectorTF = vectorizerTF.transform(vector)
     vectorTFDF = pd.DataFrame(vectorTF.todense(), columns=vectorizer.get_feature_names_out())
-    vectorTFDF = pd.concat([dfu.highEngagement, vectorTFDF], axis=1, ignore_index=True)
+    vectorTFDF = pd.concat([dfu.goodRating, vectorTFDF], axis=1, ignore_index=True)
     # print("Shape of vector TFDF:", vectorTFDF.shape)
     # print(vectorTFDF.head(10))
     
-    # vectorDF.to_csv("VectorDF.csv")
-    # vectorTFDF.to_csv("VectorTFDF.csv")
-    
-    vec = vectorTFDF if USE_TFDF else vectorDF
-    
-    non_zero_counts = vec.astype(bool).sum(axis=1)
-    columns_to_drop = non_zero_counts[non_zero_counts < THRESHOLD_NON_ZERO_COLS].index
-    vec = vec.drop(columns_to_drop, axis=1)
-    
-    # vectorTFDF.to_csv("temp.csv")
-    X = vec.drop(0, axis=1)
-    y = vec[0]
-    y.fillna(False, inplace=True)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
-
-    classifier(X_train, y_train, X_test, y_test)
+    vectorDF.to_csv("VectorDF.csv")
+    vectorTFDF.to_csv("VectorTFDF.csv")
     
 if __name__ == "__main__":
     main()
