@@ -18,11 +18,14 @@ from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 
 st = PorterStemmer()
 # MINIMUM_RATINGS = 30
-GOOD_RATING = 4
+GOOD_RATING = 4.6
 THRESHOLD_NON_ZERO_COLS = 10
 USE_TFDF = True
-USE_RELEASE_NOTES = True
+USE_RELEASE_NOTES = False
 HIGH_ENGAGEMENT_THRESHOLD = 20000
+NUM_ITERATIONS = 20
+
+GET_TOP_WORDS = False
 # MEDIUM_RATING = 4
 
 
@@ -64,15 +67,19 @@ def discretize_rating(rating):
 
 
 def classifier(X_train, y_train, X_test, y_test):
-    clf = svm.SVC(kernel='linear')
-    #clf = HistGradientBoostingClassifier()
+    # clf = svm.SVC(kernel='linear')
+    clf = HistGradientBoostingClassifier()
     clf.fit(X_train, y_train)
     y_pred = clf.predict(X_test)
 
-    cm = confusion_matrix(y_test, y_pred, labels=clf.classes_)
-    disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=clf.classes_)
-    disp.plot()
-    plt.show()
+    tn, fp, fn, tp = confusion_matrix(y_test, y_pred).ravel()
+    prec = tp / (tp + fp)
+    rec = tp / (tp + fn)
+    acc = (tp+tn) / (tp + tn + fp + fn)
+    return tn, fn, fp, tp, acc, rec, prec
+    # disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=clf.classes_)
+    # disp.plot()
+    # plt.show()
 
 def main():
     # nltk.download()
@@ -90,6 +97,41 @@ def main():
         for i, r in dfu.iterrows():
             if not pd.isna(r['releaseNotes']):
                 df.at[i, 'description'] = r['description'] + "\n" + r['releaseNotes']
+    
+    if GET_TOP_WORDS:
+        dfuHigh = dfu[dfu.highEngagement == True]
+        dfuLow = dfu[dfu.highEngagement == False]
+        
+        vectorizer = CountVectorizer(analyzer=simplify_text).fit(dfuHigh.description)
+        vector = vectorizer.transform(dfuHigh.description)
+        vectorizerTF = TfidfTransformer().fit(vector)
+        vectorTF = vectorizerTF.transform(vector)
+        vectorTFDF = pd.DataFrame(vectorTF.todense(), columns=vectorizer.get_feature_names_out())
+        
+        highWords = vectorTFDF.sum()
+        
+        vectorizer = CountVectorizer(analyzer=simplify_text).fit(dfuLow.description)
+        vector = vectorizer.transform(dfuLow.description)
+        vectorizerTF = TfidfTransformer().fit(vector)
+        vectorTF = vectorizerTF.transform(vector)
+        vectorTFDF = pd.DataFrame(vectorTF.todense(), columns=vectorizer.get_feature_names_out())
+        
+        lowWords = vectorTFDF.sum()
+        result = highWords.copy()
+        result.update(highWords.sub(lowWords, fill_value=0))
+        # result = highWords - lowWords
+        
+        # print(highWords.sort_values().head(10))
+        # print(lowWords.sort_values().head(10))
+        # print(result.sort_values().head(10))
+        # print(highWords.sort_values().tail(10))
+        # print(lowWords.sort_values().tail(10))
+        # print(result.sort_values().tail(10))
+        
+        print("Words that provide high engagement")
+        print(result.sort_values().tail(30))
+        
+        return
     
     vectorizer = CountVectorizer(analyzer=simplify_text).fit(dfu.description)
     vector = vectorizer.transform(dfu.description)
@@ -117,10 +159,36 @@ def main():
     # vectorTFDF.to_csv("temp.csv")
     X = vec.drop(0, axis=1)
     y = vec[0]
-    y.fillna(False, inplace=True)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
-
-    classifier(X_train, y_train, X_test, y_test)
+    # y.fillna(False, inplace=True)
+    
+    sumAcc = 0
+    sumPrec = 0
+    sumRec = 0
+    
+    sumTn = 0
+    sumFn = 0
+    sumTp = 0
+    sumFp = 0
+    
+    for i in range(NUM_ITERATIONS):
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+        tn, fn, fp, tp, acc, rec, prec = classifier(X_train, y_train, X_test, y_test)
+        print(tn, fn, fp, tp, acc, rec, prec)
+        sumTn += tn
+        sumFn += fn
+        sumFp += fp
+        sumTp += tp
+        sumAcc += acc
+        sumPrec += prec
+        sumRec += rec
+    
+    print("avg accuracy:", sumAcc / NUM_ITERATIONS)
+    print("avg precision:", sumPrec / NUM_ITERATIONS)
+    print("avg recall:", sumRec / NUM_ITERATIONS)
+    print("avg tn:", sumTn / NUM_ITERATIONS)
+    print("avg fn:", sumFn / NUM_ITERATIONS)
+    print("avg tp:", sumTp / NUM_ITERATIONS)
+    print("avg fp:", sumFp / NUM_ITERATIONS)
     
 if __name__ == "__main__":
     main()
